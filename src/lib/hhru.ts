@@ -129,6 +129,7 @@ export async function fetchVacancies(
     }
 
     const url = `${HH_CONFIG.BASE_URL}/vacancies?${params}`
+    console.log('🔍 Fetching vacancies:', { profession, area, url })
 
     const response = await fetch(url, {
       headers: {
@@ -138,21 +139,81 @@ export async function fetchVacancies(
       },
     })
 
+    console.log('📡 Response status:', response.status, response.statusText)
+
     if (!response.ok) {
+      const errorText = await response.text().catch(() => 'Unable to read error response')
+      console.error('❌ API error response:', errorText)
       throw new Error(`HH.ru API error: ${response.status} ${response.statusText}`)
     }
 
-    const data: HHVacanciesResponse = await response.json()
+    const data = await response.json()
+    console.log('📦 Response data structure:', {
+      hasItems: 'items' in data,
+      itemsType: typeof data.items,
+      itemsLength: Array.isArray(data.items) ? data.items.length : 'not an array',
+      found: data.found,
+      pages: data.pages,
+      page: data.page,
+      keys: Object.keys(data),
+    })
 
-    // Process vacancies
-    const processed: ProcessedVacancy[] = data.items.map(vacancy => ({
-      name: vacancy.name,
-      salary: normalizeSalary(vacancy.salary),
-      key_skills: vacancy.key_skills.map(skill => skill.name),
-    }))
+    // Check if items exists and is an array
+    if (!data || typeof data !== 'object') {
+      console.error('❌ Invalid response: data is not an object', data)
+      return []
+    }
 
+    if (!data.items || !Array.isArray(data.items)) {
+      console.warn('⚠️ No items in response or items is not an array:', data)
+      return []
+    }
+
+    if (data.items.length === 0) {
+      console.log('ℹ️ No vacancies found for query')
+      return []
+    }
+
+    console.log(`✅ Processing ${data.items.length} vacancies`)
+
+    // Process vacancies with additional safety checks
+    const processed: ProcessedVacancy[] = data.items
+      .map((vacancy: any, index: number): ProcessedVacancy | null => {
+        try {
+          // Check if vacancy has required fields
+          if (!vacancy || typeof vacancy !== 'object') {
+            console.warn(`⚠️ Skipping invalid vacancy at index ${index}:`, vacancy)
+            return null
+          }
+
+          if (!vacancy.name) {
+            console.warn(`⚠️ Skipping vacancy without name at index ${index}`)
+            return null
+          }
+
+          // Safely extract key_skills
+          const keySkills = Array.isArray(vacancy.key_skills)
+            ? vacancy.key_skills
+                .filter((skill: any) => skill && typeof skill === 'object' && skill.name)
+                .map((skill: any) => skill.name)
+            : []
+
+          return {
+            name: vacancy.name,
+            salary: normalizeSalary(vacancy.salary),
+            key_skills: keySkills,
+          }
+        } catch (err) {
+          console.error(`❌ Error processing vacancy at index ${index}:`, err)
+          return null
+        }
+      })
+      .filter((v: ProcessedVacancy | null): v is ProcessedVacancy => v !== null)
+
+    console.log(`✅ Successfully processed ${processed.length} vacancies`)
     return processed
   } catch (error) {
+    console.error('❌ Failed to fetch vacancies:', error)
     if (error instanceof Error) {
       throw new Error(`Failed to fetch vacancies: ${error.message}`)
     }
