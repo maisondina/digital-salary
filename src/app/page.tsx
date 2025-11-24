@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import data from '@/data/copywriter.json'
 
 type SkillLevel = 'basic' | 'confident' | 'expert' | null
-type Region = 'moscow' | 'spb' | 'remote'
+type Region = 'moscow' | 'spb' | 'russia'
 
 export default function Page() {
   const [region, setRegion] = useState<Region>('moscow')
@@ -31,7 +31,7 @@ export default function Page() {
   }
 
   const Star = ({filled, onClick}: {filled:boolean, onClick:()=>void}) => (
-    <svg onClick={onClick} className={`w-6 h-6 cursor-pointer ${filled ? 'fill-yellow-400' : 'fill-none'} stroke-gray-400 hover:scale-110`} viewBox="0 0 24 24" strokeWidth="2">
+    <svg onClick={onClick} className={`w-6 h-6 cursor-pointer pointer-events-auto ${filled ? 'fill-yellow-400' : 'fill-none'} stroke-gray-400 hover:scale-110`} viewBox="0 0 24 24" strokeWidth="2">
       <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
     </svg>
   )
@@ -63,7 +63,7 @@ export default function Page() {
               <select value={region} onChange={e=>setRegion(e.target.value as Region)} className="px-4 py-2 border rounded-lg">
                 <option value="moscow">Москва</option>
                 <option value="spb">Санкт-Петербург</option>
-                <option value="remote">Удалённо</option>
+                <option value="russia">Вся Россия</option>
               </select>
             </div>
           </div>
@@ -99,7 +99,7 @@ export default function Page() {
                         (sel==='expert' && i<=2)
                       )
                       return (
-                        <div key={lvl} className="relative"
+                        <div key={lvl} className="relative p-1"
                           onMouseEnter={()=>setHovered({skillId:skill.id,level:lvl})}
                           onMouseLeave={()=>setHovered(null)}>
                           <Star filled={!!filled} onClick={()=>setSkills(prev=>({...prev,[skill.id]:prev[skill.id]===lvl?null:lvl}))}/>
