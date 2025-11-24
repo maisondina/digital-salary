@@ -11,6 +11,7 @@ export default function Page() {
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [step, setStep] = useState(0)
   const [hovered, setHovered] = useState<{skillId:string,level:SkillLevel}|null>(null)
+  const [popupPosition, setPopupPosition] = useState<{top: number, left: number} | null>(null)
 
   useEffect(() => {
     if (!localStorage.getItem('visited')) {
@@ -18,6 +19,30 @@ export default function Page() {
       localStorage.setItem('visited', '1')
     }
   }, [])
+
+  useEffect(() => {
+    if (showOnboarding && step < steps.length) {
+      const elementId = steps[step].id
+      const element = document.getElementById(elementId)
+      if (element) {
+        // Прокручиваем к элементу
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+
+        // Небольшая задержка для завершения прокрутки
+        setTimeout(() => {
+          const rect = element.getBoundingClientRect()
+          const scrollY = window.scrollY
+          const scrollX = window.scrollX
+
+          // Позиционируем попап над элементом
+          setPopupPosition({
+            top: rect.top + scrollY - 20,
+            left: rect.left + scrollX + rect.width / 2
+          })
+        }, 300)
+      }
+    }
+  }, [showOnboarding, step])
 
   const salary = () => {
     let total = data.base_salary
@@ -137,20 +162,41 @@ export default function Page() {
         </footer>
       </main>
 
-      {showOnboarding && step < steps.length && (
+      {showOnboarding && step < steps.length && popupPosition && (
         <>
           <div className="fixed inset-0 bg-black/50 z-40" onClick={()=>step<steps.length-1?setStep(step+1):setShowOnboarding(false)}/>
-          <div className="fixed z-50 bg-white rounded-lg shadow-xl p-6 max-w-sm top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+          <style dangerouslySetInnerHTML={{__html: `
+            #${steps[step].id} {
+              position: relative !important;
+              z-index: 50 !important;
+              box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.5), 0 0 20px 8px rgba(59, 130, 246, 0.3) !important;
+              border-radius: 8px !important;
+              transition: all 0.3s ease;
+            }
+          `}}/>
+          <div
+            className="fixed z-50 bg-white rounded-lg shadow-xl p-6 max-w-sm -translate-x-1/2"
+            style={{
+              top: `${popupPosition.top}px`,
+              left: `${popupPosition.left}px`,
+              transform: 'translate(-50%, -100%)',
+              marginTop: '-16px'
+            }}
+          >
             <div className="flex justify-between mb-3">
               <h3 className="text-lg font-bold">{steps[step].title}</h3>
-              <button onClick={()=>setShowOnboarding(false)} className="text-gray-400">✕</button>
+              <button onClick={()=>setShowOnboarding(false)} className="text-gray-400 hover:text-gray-600">✕</button>
             </div>
             <p className="text-gray-600 mb-4">{steps[step].text}</p>
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-500">{step+1} из {steps.length}</span>
-              <button onClick={()=>step<steps.length-1?setStep(step+1):setShowOnboarding(false)} className="px-4 py-2 bg-blue-600 text-white rounded-lg">
+              <button onClick={()=>step<steps.length-1?setStep(step+1):setShowOnboarding(false)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                 {step<steps.length-1?'Далее':'Понятно!'}
               </button>
+            </div>
+            {/* Стрелка вниз */}
+            <div className="absolute top-full left-1/2 -translate-x-1/2">
+              <div className="border-8 border-transparent border-t-white" style={{filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))'}}/>
             </div>
           </div>
         </>
