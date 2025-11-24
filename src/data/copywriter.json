@@ -1,11 +1,20 @@
 {
   "profession": "Копирайтер",
-  "base_salary": 55000,
+  "base_salary": 62000,
   "description": "Медианная зарплата копирайтера в России",
   "regions": {
-    "moscow": { "name": "Москва", "coefficient": 1.15 },
-    "spb": { "name": "Санкт-Петербург", "coefficient": 0.85 },
-    "russia": { "name": "Вся Россия", "coefficient": 1.0 }
+    "moscow": {
+      "name": "Москва",
+      "coefficient": 1.21
+    },
+    "spb": {
+      "name": "Санкт-Петербург",
+      "coefficient": 0.94
+    },
+    "russia": {
+      "name": "Вся Россия",
+      "coefficient": 1
+    }
   },
   "skills": [
     {
@@ -96,5 +105,76 @@
         }
       }
     }
-  ]
+  ],
+  "api_data": {
+    "updated_at": "2025-11-24T18:36:25.348Z",
+    "total_vacancies": 87,
+    "regional_salaries": {
+      "moscow": 75000,
+      "spb": 58000,
+      "russia": 62000
+    },
+    "top_skills": [
+      {
+        "name": "SEO-копирайтинг",
+        "count": 45,
+        "median_salary": 70000,
+        "salary_impact": 8000
+      },
+      {
+        "name": "Контент-маркетинг",
+        "count": 38,
+        "median_salary": 68000,
+        "salary_impact": 6000
+      },
+      {
+        "name": "SMM",
+        "count": 35,
+        "median_salary": 65000,
+        "salary_impact": 3000
+      },
+      {
+        "name": "Работа с CMS",
+        "count": 28,
+        "median_salary": 64000,
+        "salary_impact": 2000
+      },
+      {
+        "name": "HTML/CSS",
+        "count": 24,
+        "median_salary": 72000,
+        "salary_impact": 10000
+      },
+      {
+        "name": "Google Analytics",
+        "count": 22,
+        "median_salary": 71000,
+        "salary_impact": 9000
+      },
+      {
+        "name": "Яндекс.Метрика",
+        "count": 20,
+        "median_salary": 69000,
+        "salary_impact": 7000
+      },
+      {
+        "name": "WordPress",
+        "count": 18,
+        "median_salary": 66000,
+        "salary_impact": 4000
+      },
+      {
+        "name": "Английский язык",
+        "count": 16,
+        "median_salary": 78000,
+        "salary_impact": 16000
+      },
+      {
+        "name": "Редактура",
+        "count": 15,
+        "median_salary": 63000,
+        "salary_impact": 1000
+      }
+    ]
+  }
 }
