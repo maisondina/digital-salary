@@ -5,7 +5,7 @@
   "regions": {
     "moscow": { "name": "Москва", "coefficient": 1.15 },
     "spb": { "name": "Санкт-Петербург", "coefficient": 0.85 },
-    "remote": { "name": "Удалённо", "coefficient": 1.0 }
+    "russia": { "name": "Вся Россия", "coefficient": 1.0 }
   },
   "skills": [
     {
