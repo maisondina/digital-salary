@@ -12,8 +12,10 @@ export default function SalaryCalculator() {
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [step, setStep] = useState(0)
   const [hoveredSkill, setHoveredSkill] = useState<string | null>(null)
-  const [hoveredLevel, setHoveredLevel] = useState<SkillLevel>(null)
+  const [hoveredLevel, setHoveredLevel] = useState<number>(-1)
   const [currentPage, setCurrentPage] = useState<Page>('calc')
+  const [showProfessionDropdown, setShowProfessionDropdown] = useState(false)
+  const [showRegionDropdown, setShowRegionDropdown] = useState(false)
 
   useEffect(() => {
     if (typeof window !== 'undefined' && !localStorage.getItem('visited')) {
@@ -22,10 +24,26 @@ export default function SalaryCalculator() {
     }
   }, [])
 
+  // Закрытие дропдаунов при клике вне
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setShowProfessionDropdown(false)
+      setShowRegionDropdown(false)
+    }
+    document.addEventListener('click', handleClickOutside)
+    return () => document.removeEventListener('click', handleClickOutside)
+  }, [])
+
   const regionNames: Record<Region, string> = {
     moscow: 'Москве',
     spb: 'Санкт-Петербурге',
     russia: 'России'
+  }
+
+  const regionLabels: Record<Region, string> = {
+    moscow: 'Москва',
+    spb: 'Санкт-Петербург',
+    russia: 'Вся Россия'
   }
 
   const calculateSalary = useCallback(() => {
@@ -84,6 +102,59 @@ export default function SalaryCalculator() {
     { title: '4. Получите результат', text: 'Это ваша рыночная стоимость' }
   ]
 
+  // Кастомный дропдаун
+  const CustomDropdown = ({ 
+    label, 
+    value, 
+    options, 
+    isOpen, 
+    onToggle, 
+    onChange 
+  }: { 
+    label: string
+    value: string
+    options: { value: string; label: string }[]
+    isOpen: boolean
+    onToggle: () => void
+    onChange: (value: string) => void
+  }) => (
+    <div className="relative">
+      <label className="block text-xs text-gray-500 mb-1.5 font-medium">{label}</label>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onToggle() }}
+        className="flex items-center justify-between gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-xl hover:border-gray-300 transition-colors min-w-[160px] text-left"
+      >
+        <span className="text-gray-900">{value}</span>
+        <svg 
+          className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} 
+          fill="none" 
+          stroke="currentColor" 
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      
+      {isOpen && (
+        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden">
+          {options.map(option => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onChange(option.value); onToggle() }}
+              className={`w-full px-4 py-2.5 text-left hover:bg-gray-50 transition-colors ${
+                option.label === value ? 'bg-blue-50 text-blue-600' : 'text-gray-900'
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+
   const CalculatorPage = () => (
     <>
       <div className="text-center mb-16">
@@ -105,6 +176,7 @@ export default function SalaryCalculator() {
           {data.skills.map(skill => {
             const selectedLevel = skills[skill.id]
             const isSelected = !!selectedLevel
+            const selectedLevelIndex = selectedLevel ? levels.indexOf(selectedLevel) : -1
 
             return (
               <div
@@ -127,12 +199,12 @@ export default function SalaryCalculator() {
 
                 <div className="flex gap-2">
                   {levels.map((lvl, idx) => {
-                    const isFilled = selectedLevel === 'basic' ? idx === 0
-                      : selectedLevel === 'confident' ? idx <= 1
-                      : selectedLevel === 'expert' ? true
-                      : false
+                    // Звезда закрашена если: выбрана эта или предыдущая, ИЛИ при наведении на эту или следующую
+                    const isFilledBySelection = selectedLevelIndex >= idx
+                    const isFilledByHover = hoveredSkill === skill.id && hoveredLevel >= idx
+                    const isFilled = isFilledBySelection || isFilledByHover
 
-                    const isHovered = hoveredSkill === skill.id && hoveredLevel === lvl
+                    const isHoveredStar = hoveredSkill === skill.id && hoveredLevel === idx
 
                     return (
                       <div
@@ -140,11 +212,11 @@ export default function SalaryCalculator() {
                         className="relative"
                         onMouseEnter={() => {
                           setHoveredSkill(skill.id)
-                          setHoveredLevel(lvl)
+                          setHoveredLevel(idx)
                         }}
                         onMouseLeave={() => {
                           setHoveredSkill(null)
-                          setHoveredLevel(null)
+                          setHoveredLevel(-1)
                         }}
                       >
                         <button
@@ -157,7 +229,7 @@ export default function SalaryCalculator() {
                             className={`w-8 h-8 transition-colors ${
                               isFilled
                                 ? 'fill-yellow-400 stroke-yellow-500'
-                                : 'fill-gray-100 stroke-gray-300 hover:fill-yellow-100 hover:stroke-yellow-400'
+                                : 'fill-gray-100 stroke-gray-300'
                             }`}
                             viewBox="0 0 24 24"
                             strokeWidth="1.5"
@@ -166,7 +238,7 @@ export default function SalaryCalculator() {
                           </svg>
                         </button>
 
-                        {isHovered && (
+                        {isHoveredStar && (
                           <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-72 bg-gray-900 text-white text-sm rounded-xl p-4 shadow-2xl z-50 pointer-events-none">
                             <div className="font-semibold text-base mb-2">
                               {skill.levels[lvl].name}
@@ -213,40 +285,48 @@ export default function SalaryCalculator() {
 
       <h1 className="text-3xl font-bold mb-8">Как это работает</h1>
 
-      <div className="prose prose-lg">
-        <p className="text-gray-600 mb-6">
+      <div className="space-y-6 text-gray-600">
+        <p>
           Digital Salary анализирует тысячи актуальных вакансий с hh.ru и показывает,
           как различные навыки влияют на зарплату специалиста.
         </p>
 
-        <h2 className="text-xl font-bold mt-8 mb-4">Процесс расчёта</h2>
-        <ol className="space-y-4 text-gray-700">
-          <li><strong>Собираем данные</strong> — анализируем все актуальные вакансии по профессии в России</li>
-          <li><strong>Определяем базу</strong> — медианная зарплата по региону становится отправной точкой</li>
-          <li><strong>Оцениваем навыки</strong> — сравниваем зарплаты в вакансиях с конкретным навыком и без него</li>
-          <li><strong>Показываем результат</strong> — вы сразу видите свою рыночную стоимость</li>
-        </ol>
+        <div>
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Процесс расчёта</h2>
+          <ol className="space-y-3 list-decimal list-inside">
+            <li><strong>Собираем данные</strong> — анализируем все актуальные вакансии по профессии в России</li>
+            <li><strong>Определяем базу</strong> — медианная зарплата по региону становится отправной точкой</li>
+            <li><strong>Оцениваем навыки</strong> — сравниваем зарплаты в вакансиях с конкретным навыком и без него</li>
+            <li><strong>Показываем результат</strong> — вы сразу видите свою рыночную стоимость</li>
+          </ol>
+        </div>
 
-        <h2 className="text-xl font-bold mt-8 mb-4">Откуда данные</h2>
-        <p className="text-gray-600 mb-4">
-          Все данные собираются через официальный API сервиса hh.ru — крупнейшей
-          площадки по поиску работы в России.
-        </p>
+        <div>
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Откуда данные</h2>
+          <p>
+            Все данные собираются через официальный API сервиса hh.ru — крупнейшей
+            площадки по поиску работы в России.
+          </p>
+        </div>
 
-        <h2 className="text-xl font-bold mt-8 mb-4">Почему медиана, а не среднее?</h2>
-        <p className="text-gray-600 mb-4">
-          <strong>Пример:</strong> 5 копирайтеров зарабатывают: 40k, 50k, 55k, 60k, 250k
-        </p>
-        <ul className="space-y-2 text-gray-700 mb-4">
-          <li>Среднее: 91k ₽ (искажено высокой зарплатой)</li>
-          <li>Медиана: 55k ₽ (реальная типичная зарплата)</li>
-        </ul>
+        <div>
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Почему медиана, а не среднее?</h2>
+          <p className="mb-3">
+            <strong>Пример:</strong> 5 копирайтеров зарабатывают: 40k, 50k, 55k, 60k, 250k
+          </p>
+          <ul className="space-y-1">
+            <li>• Среднее: 91k ₽ (искажено высокой зарплатой)</li>
+            <li>• Медиана: 55k ₽ (реальная типичная зарплата)</li>
+          </ul>
+        </div>
 
-        <h2 className="text-xl font-bold mt-8 mb-4">Ограничения</h2>
-        <p className="text-gray-600">
-          Калькулятор показывает рыночную оценку. Реальная зарплата зависит от опыта,
-          компании, портфолио и переговорных навыков.
-        </p>
+        <div>
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Ограничения</h2>
+          <p>
+            Калькулятор показывает рыночную оценку. Реальная зарплата зависит от опыта,
+            компании, портфолио и переговорных навыков.
+          </p>
+        </div>
       </div>
     </div>
   )
@@ -262,30 +342,34 @@ export default function SalaryCalculator() {
 
       <h1 className="text-3xl font-bold mb-8">О проекте</h1>
 
-      <div className="prose prose-lg">
-        <p className="text-xl text-gray-600 mb-6">
+      <div className="space-y-6 text-gray-600">
+        <p className="text-xl">
           Digital Salary — калькулятор рыночной стоимости диджитал-специалистов.
         </p>
 
-        <p className="text-gray-600 mb-6">
+        <p>
           Узнайте, сколько вы можете зарабатывать с вашим набором навыков —
           на основе реальных данных с hh.ru.
         </p>
 
-        <h2 className="text-xl font-bold mt-8 mb-4">Технологии</h2>
-        <p className="text-gray-600 mb-4">
-          Создан с помощью <strong>Claude</strong> (Anthropic) — AI-ассистента.
-          Next.js, TypeScript, API hh.ru.
-        </p>
+        <div>
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Технологии</h2>
+          <p>
+            Создан с помощью <strong>Claude</strong> (Anthropic) — AI-ассистента.
+            Next.js, TypeScript, API hh.ru.
+          </p>
+        </div>
 
-        <h2 className="text-xl font-bold mt-8 mb-4">Планы</h2>
-        <ul className="space-y-2 text-gray-700">
-          <li>Больше профессий</li>
-          <li>Учёт опыта работы</li>
-          <li>Динамика зарплат</li>
-        </ul>
+        <div>
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Планы</h2>
+          <ul className="space-y-1">
+            <li>• Больше профессий</li>
+            <li>• Учёт опыта работы</li>
+            <li>• Динамика зарплат</li>
+          </ul>
+        </div>
 
-        <p className="text-gray-600 mt-8">
+        <p>
           Open source:{' '}
           <a href="https://github.com/maisondina/digital-salary" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">
             github.com/maisondina/digital-salary
@@ -306,29 +390,31 @@ export default function SalaryCalculator() {
 
       <h1 className="text-3xl font-bold mb-8">Автор</h1>
 
-      <div className="prose prose-lg">
-        <p className="text-xl text-gray-600 mb-6">
+      <div className="space-y-6 text-gray-600">
+        <p className="text-xl">
           <strong>Дина Майсон</strong> — UX-редактор
         </p>
 
-        <p className="text-gray-600 mb-6">
+        <p>
           Создала этот проект, чтобы помочь специалистам понять свою рыночную стоимость.
           Весь код написан в диалоге с Claude.
         </p>
 
-        <h2 className="text-xl font-bold mt-8 mb-4">Связь</h2>
-        <p className="text-gray-600">
-          Telegram:{' '}
-          <a href="https://t.me/maisondina" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">
-            @maisondina
-          </a>
-        </p>
-        <p className="text-gray-600 mt-2">
-          Канал:{' '}
-          <a href="https://t.me/+ZY7Np9Z9M95kMmY6" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">
-            «Текст готов»
-          </a>
-        </p>
+        <div>
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Связь</h2>
+          <p>
+            Telegram:{' '}
+            <a href="https://t.me/maisondina" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">
+              @maisondina
+            </a>
+          </p>
+          <p className="mt-2">
+            Канал:{' '}
+            <a href="https://t.me/+ZY7Np9Z9M95kMmY6" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">
+              «Текст готов»
+            </a>
+          </p>
+        </div>
       </div>
     </div>
   )
@@ -339,29 +425,37 @@ export default function SalaryCalculator() {
         <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
           <div className="cursor-pointer" onClick={() => setCurrentPage('calc')}>
             <h1 className="text-xl font-bold">Digital Salary</h1>
-            <p className="text-sm text-gray-600">Калькулятор зарплат</p>
+            <p className="text-sm text-gray-500">Калькулятор зарплат</p>
           </div>
 
           {currentPage === 'calc' && (
             <div className="flex gap-4">
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">Профессия</label>
-                <select className="px-4 py-2 border rounded-lg bg-white">
-                  <option>Копирайтер</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">Местоположение</label>
-                <select
-                  value={region}
-                  onChange={e => setRegion(e.target.value as Region)}
-                  className="px-4 py-2 border rounded-lg bg-white"
-                >
-                  <option value="moscow">Москва</option>
-                  <option value="spb">Санкт-Петербург</option>
-                  <option value="russia">Вся Россия</option>
-                </select>
-              </div>
+              <CustomDropdown
+                label="Профессия"
+                value="Копирайтер"
+                options={[{ value: 'copywriter', label: 'Копирайтер' }]}
+                isOpen={showProfessionDropdown}
+                onToggle={() => {
+                  setShowProfessionDropdown(!showProfessionDropdown)
+                  setShowRegionDropdown(false)
+                }}
+                onChange={() => {}}
+              />
+              <CustomDropdown
+                label="Местоположение"
+                value={regionLabels[region]}
+                options={[
+                  { value: 'moscow', label: 'Москва' },
+                  { value: 'spb', label: 'Санкт-Петербург' },
+                  { value: 'russia', label: 'Вся Россия' },
+                ]}
+                isOpen={showRegionDropdown}
+                onToggle={() => {
+                  setShowRegionDropdown(!showRegionDropdown)
+                  setShowProfessionDropdown(false)
+                }}
+                onChange={(value) => setRegion(value as Region)}
+              />
             </div>
           )}
         </div>
@@ -374,19 +468,28 @@ export default function SalaryCalculator() {
         {currentPage === 'contacts' && <ContactsPage />}
 
         <footer className="mt-20 pt-12 border-t text-center">
-          <div className="flex justify-center gap-8 text-sm text-gray-600">
-            <button onClick={() => setCurrentPage('methodology')} className="hover:text-blue-600">
+          <div className="flex justify-center gap-8 text-sm text-gray-500">
+            <button 
+              onClick={() => setCurrentPage('methodology')} 
+              className={`hover:text-blue-600 transition-colors ${currentPage === 'methodology' ? 'text-blue-600' : ''}`}
+            >
               Методология
             </button>
-            <button onClick={() => setCurrentPage('about')} className="hover:text-blue-600">
+            <button 
+              onClick={() => setCurrentPage('about')} 
+              className={`hover:text-blue-600 transition-colors ${currentPage === 'about' ? 'text-blue-600' : ''}`}
+            >
               О проекте
             </button>
-            <button onClick={() => setCurrentPage('contacts')} className="hover:text-blue-600">
+            <button 
+              onClick={() => setCurrentPage('contacts')} 
+              className={`hover:text-blue-600 transition-colors ${currentPage === 'contacts' ? 'text-blue-600' : ''}`}
+            >
               Контакты
             </button>
           </div>
           <div className="mt-4 text-xs text-gray-400">
-            Данные: {new Date(data.meta.updated_at).toLocaleDateString('ru-RU')}
+            Данные обновлены: {new Date(data.meta.updated_at).toLocaleDateString('ru-RU')}
           </div>
         </footer>
       </main>
