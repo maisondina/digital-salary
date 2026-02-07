@@ -86,24 +86,81 @@ export interface RegionalSalaries {
 // СПИСОК НАВЫКОВ ДЛЯ ПОИСКА В ТЕКСТЕ
 // ============================================
 
-const SKILLS_TO_FIND = [
-  // Копирайтинг
-  { keywords: ['seo', 'сео', 'поисковая оптимизация'], name: 'SEO-копирайтинг' },
-  { keywords: ['ux', 'ux-тексты', 'ux-редактура', 'ux writing', 'юикс'], name: 'UX-редактура' },
-  { keywords: ['техническ', 'technical writing', 'техпис', 'технический писатель'], name: 'Техническое писательство' },
-  { keywords: ['smm', 'соцсет', 'социальн', 'вконтакте', 'telegram', 'телеграм'], name: 'SMM и соцсети' },
-  { keywords: ['email', 'e-mail', 'рассылк', 'newsletter', 'письма'], name: 'Email-маркетинг' },
-  { keywords: ['лендинг', 'landing', 'посадочн'], name: 'Создание лендингов' },
-  { keywords: ['tilda', 'тильда', 'конструктор', 'wix', 'readymag'], name: 'Работа с конструкторами сайтов' },
-  { keywords: ['аналитик', 'метрик', 'яндекс.метрика', 'google analytics', 'анализ'], name: 'Аналитика' },
+// Навыки, общие для всех профессий
+const COMMON_SKILLS = [
   { keywords: ['english', 'англ', 'английск'], name: 'Английский язык' },
-  { keywords: ['редактур', 'редактор', 'корректур', 'вычитк'], name: 'Редактура и корректура' },
-  { keywords: ['креатив', 'creative', 'слоган', 'нейминг', 'naming'], name: 'Креативный копирайтинг' },
-  { keywords: ['б2б', 'b2b', 'бизнес'], name: 'B2B-копирайтинг' },
-  { keywords: ['контент-план', 'контент план', 'стратеги'], name: 'Контент-стратегия' },
-  { keywords: ['figma', 'фигма', 'photoshop', 'фотошоп', 'canva'], name: 'Работа с графикой' },
+  { keywords: ['аналитик', 'метрик', 'яндекс.метрика', 'google analytics', 'анализ'], name: 'Аналитика' },
   { keywords: ['chatgpt', 'gpt', 'нейросет', 'ии', 'ai', 'искусственн'], name: 'Работа с ИИ' },
 ]
+
+// Навыки по профессиям
+const SKILLS_BY_PROFESSION: Record<string, { keywords: string[], name: string }[]> = {
+  'копирайтер': [
+    { keywords: ['seo', 'сео', 'поисковая оптимизация'], name: 'SEO-копирайтинг' },
+    { keywords: ['ux', 'ux-тексты', 'ux-редактура', 'ux writing', 'юикс'], name: 'UX-редактура' },
+    { keywords: ['техническ', 'technical writing', 'техпис', 'технический писатель'], name: 'Техническое писательство' },
+    { keywords: ['smm', 'соцсет', 'социальн', 'вконтакте', 'telegram', 'телеграм'], name: 'SMM и соцсети' },
+    { keywords: ['email', 'e-mail', 'рассылк', 'newsletter', 'письма'], name: 'Email-маркетинг' },
+    { keywords: ['лендинг', 'landing', 'посадочн'], name: 'Создание лендингов' },
+    { keywords: ['tilda', 'тильда', 'конструктор', 'wix', 'readymag'], name: 'Работа с конструкторами сайтов' },
+    { keywords: ['редактур', 'редактор', 'корректур', 'вычитк'], name: 'Редактура и корректура' },
+    { keywords: ['креатив', 'creative', 'слоган', 'нейминг', 'naming'], name: 'Креативный копирайтинг' },
+    { keywords: ['б2б', 'b2b', 'бизнес'], name: 'B2B-копирайтинг' },
+    { keywords: ['контент-план', 'контент план', 'стратеги'], name: 'Контент-стратегия' },
+    { keywords: ['figma', 'фигма', 'photoshop', 'фотошоп', 'canva'], name: 'Работа с графикой' },
+  ],
+  'smm менеджер': [
+    { keywords: ['контент-план', 'контент план', 'стратеги'], name: 'Контент-стратегия' },
+    { keywords: ['таргет', 'target', 'рекламн'], name: 'Таргетированная реклама' },
+    { keywords: ['копирайт', 'текст', 'пост'], name: 'Копирайтинг' },
+    { keywords: ['видео', 'reels', 'рилс', 'монтаж'], name: 'Видео и Reels' },
+    { keywords: ['stories', 'сторис', 'стори'], name: 'Stories и визуал' },
+    { keywords: ['figma', 'фигма', 'canva', 'photoshop', 'фотошоп', 'график'], name: 'Работа с графикой' },
+    { keywords: ['influence', 'блогер', 'инфлюенс', 'лидер мнений'], name: 'Работа с блогерами' },
+    { keywords: ['telegram', 'телеграм', 'тг'], name: 'Telegram-маркетинг' },
+    { keywords: ['vk', 'вк', 'вконтакте'], name: 'VK-маркетинг' },
+    { keywords: ['email', 'e-mail', 'рассылк'], name: 'Email-маркетинг' },
+    { keywords: ['комьюнити', 'community', 'сообщество', 'модерац'], name: 'Комьюнити-менеджмент' },
+    { keywords: ['seo', 'сео', 'поисковая'], name: 'SEO-основы' },
+  ],
+  'таргетолог': [
+    { keywords: ['vk', 'вк', 'вконтакте'], name: 'VK Реклама' },
+    { keywords: ['яндекс', 'yandex', 'директ'], name: 'Яндекс.Директ' },
+    { keywords: ['google', 'гугл', 'google ads'], name: 'Google Ads' },
+    { keywords: ['telegram', 'телеграм', 'tg ads'], name: 'Telegram Ads' },
+    { keywords: ['креатив', 'баннер', 'визуал'], name: 'Создание креативов' },
+    { keywords: ['контекстн', 'поисков'], name: 'Контекстная реклама' },
+    { keywords: ['ретаргет', 'ремаркет', 'look-alike', 'lookalike'], name: 'Ретаргетинг' },
+    { keywords: ['figma', 'canva', 'photoshop', 'график'], name: 'Работа с графикой' },
+    { keywords: ['a/b', 'аб-тест', 'тестирован'], name: 'A/B-тестирование' },
+    { keywords: ['воронк', 'лид', 'конверси'], name: 'Воронки продаж' },
+    { keywords: ['mytarget', 'майтаргет'], name: 'myTarget' },
+    { keywords: ['excel', 'таблиц', 'отчёт', 'отчет', 'report'], name: 'Отчётность и Excel' },
+  ],
+  'seo специалист': [
+    { keywords: ['семантик', 'семантическ', 'ядро', 'кластериз'], name: 'Семантическое ядро' },
+    { keywords: ['линкбилд', 'ссылочн', 'ссылк', 'link building'], name: 'Линкбилдинг' },
+    { keywords: ['техническ', 'technical', 'аудит', 'crawl'], name: 'Технический SEO-аудит' },
+    { keywords: ['контент', 'текст', 'копирайт', 'стать'], name: 'SEO-контент' },
+    { keywords: ['яндекс', 'yandex', 'метрик'], name: 'Яндекс.Метрика и Вебмастер' },
+    { keywords: ['google', 'гугл', 'search console', 'ga4'], name: 'Google Analytics и Search Console' },
+    { keywords: ['wordpress', 'вордпресс', 'cms', 'битрикс', 'тильда', 'tilda'], name: 'Работа с CMS' },
+    { keywords: ['коммерческ', 'фактор', 'ранжирован'], name: 'Коммерческие факторы' },
+    { keywords: ['локальн', 'local', 'региональн'], name: 'Локальное SEO' },
+    { keywords: ['python', 'программ', 'парс', 'скрипт', 'автоматизац'], name: 'Автоматизация и парсинг' },
+    { keywords: ['ahrefs', 'serpstat', 'semrush', 'keys.so'], name: 'SEO-инструменты' },
+    { keywords: ['e-commerce', 'магазин', 'ecommerce', 'товар'], name: 'SEO для e-commerce' },
+  ],
+}
+
+function getSkillsForProfession(keyword: string): { keywords: string[], name: string }[] {
+  const lowerKeyword = keyword.toLowerCase()
+  const professionSkills = SKILLS_BY_PROFESSION[lowerKeyword] || SKILLS_BY_PROFESSION['копирайтер']
+  return [...professionSkills, ...COMMON_SKILLS]
+}
+
+// Дефолтный список для обратной совместимости
+const SKILLS_TO_FIND = getSkillsForProfession('копирайтер')
 
 // ============================================
 // ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
@@ -125,12 +182,13 @@ function calculateSalary(from: number, to: number): number {
   return 0
 }
 
-function findSkillsInText(text: string): string[] {
+function findSkillsInText(text: string, professionKeyword?: string): string[] {
   if (!text) return []
   const lowerText = text.toLowerCase()
   const foundSkills: string[] = []
+  const skillsList = professionKeyword ? getSkillsForProfession(professionKeyword) : SKILLS_TO_FIND
 
-  for (const skill of SKILLS_TO_FIND) {
+  for (const skill of skillsList) {
     for (const keyword of skill.keywords) {
       if (lowerText.includes(keyword.toLowerCase())) {
         if (!foundSkills.includes(skill.name)) {
@@ -219,7 +277,7 @@ export async function fetchAllVacancies(
 
         // Ищем навыки в тексте вакансии
         const fullText = `${vacancy.profession} ${vacancy.work || ''} ${vacancy.candidat || ''}`
-        const skills = findSkillsInText(fullText)
+        const skills = findSkillsInText(fullText, keyword)
 
         allVacancies.push({
           id: vacancy.id,
@@ -253,17 +311,18 @@ export async function fetchAllVacancies(
   return allVacancies
 }
 
-export function analyzeSkills(vacancies: ProcessedVacancy[]): SkillAnalysis[] {
+export function analyzeSkills(vacancies: ProcessedVacancy[], professionKeyword?: string): SkillAnalysis[] {
+  const skillsList = professionKeyword ? getSkillsForProfession(professionKeyword) : SKILLS_TO_FIND
   const skillStats: Map<string, { withSkill: number[]; withoutSkill: number[] }> = new Map()
 
   // Инициализируем статистику для всех навыков
-  for (const skill of SKILLS_TO_FIND) {
+  for (const skill of skillsList) {
     skillStats.set(skill.name, { withSkill: [], withoutSkill: [] })
   }
 
   // Собираем зарплаты
   for (const vacancy of vacancies) {
-    for (const skill of SKILLS_TO_FIND) {
+    for (const skill of skillsList) {
       const stats = skillStats.get(skill.name)!
       if (vacancy.skills.includes(skill.name)) {
         stats.withSkill.push(vacancy.salary)
@@ -276,7 +335,7 @@ export function analyzeSkills(vacancies: ProcessedVacancy[]): SkillAnalysis[] {
   // Считаем медианы и сортируем по количеству упоминаний
   const results: SkillAnalysis[] = []
 
-  for (const [name, stats] of skillStats) {
+  skillStats.forEach((stats, name) => {
     if (stats.withSkill.length >= 3) { // минимум 3 вакансии с навыком
       const medianWith = calculateMedian(stats.withSkill)
       const medianWithout = calculateMedian(stats.withoutSkill)
@@ -289,7 +348,7 @@ export function analyzeSkills(vacancies: ProcessedVacancy[]): SkillAnalysis[] {
         salaryImpact: medianWith - medianWithout,
       })
     }
-  }
+  })
 
   // Сортируем по количеству упоминаний
   return results.sort((a, b) => b.count - a.count).slice(0, 10)
