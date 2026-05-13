@@ -1,6 +1,16 @@
 // SuperJob API Configuration
+// Секретный ключ читаем из переменных окружения, чтобы не светить его в публичном репо.
+// Локально — кладём в .env.local. На Vercel — в Project Settings → Environment Variables.
+const SUPERJOB_SECRET_KEY = process.env.SUPERJOB_SECRET_KEY
+
+if (!SUPERJOB_SECRET_KEY) {
+  throw new Error(
+    'SUPERJOB_SECRET_KEY не задан. Положи ключ в .env.local или Environment Variables на Vercel.'
+  )
+}
+
 const SUPERJOB_CONFIG = {
-  SECRET_KEY: 'v3.r.139552512.b6d973d11f790c053701b76739a69ba0b95681ab.0add4cac9dda8286bf8223c40ed8ebdaf36f115f',
+  SECRET_KEY: SUPERJOB_SECRET_KEY,
   BASE_URL: 'https://api.superjob.ru/2.0',
   MAX_PER_PAGE: 100,
   REQUEST_DELAY_MS: 600, // 120 запросов в минуту = 1 запрос в 500мс, берём с запасом

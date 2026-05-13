@@ -1,321 +1,488 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 
-interface SkillData {
+// ============================================
+// ТИПЫ ДАННЫХ
+// ============================================
+
+type SkillLevel = 'basic' | 'confident' | 'expert' | null
+type Region = 'moscow' | 'spb' | 'russia'
+
+interface SkillLevelData {
   name: string
-  count: number
-  medianWithSkill: number
-  salaryImpact: number
+  description: string
+  salary_impact: number
 }
 
-interface ApiResponse {
-  success: boolean
-  error?: string
-  data: {
-    profession: string
-    city: string
-    medianSalary: number
-    vacancyCount: number
-    skills: SkillData[]
-    updatedAt: string
-  } | null
+interface SkillConfig {
+  id: string
+  name: string
+  icon: string
+  levels: {
+    basic: SkillLevelData
+    confident: SkillLevelData
+    expert: SkillLevelData
+  }
 }
 
-const CITIES = ['Москва', 'Санкт-Петербург', 'Россия']
+interface RegionConfig {
+  name: string
+  median_salary: number
+  vacancy_count: number
+}
+
+interface ProfessionData {
+  profession: string
+  base_salary: number
+  description?: string
+  regions: {
+    moscow: RegionConfig
+    spb: RegionConfig
+    russia: RegionConfig
+  }
+  skills: SkillConfig[]
+  meta: {
+    updated_at: string
+    total_vacancies: number
+    data_source: string
+  }
+}
+
 const PROFESSIONS = ['Копирайтер', 'SMM-специалист', 'Таргетолог', 'SEO-специалист']
 
-export default function Home() {
+const REGION_LABELS: Record<Region, string> = {
+  moscow: 'Москва',
+  spb: 'Санкт-Петербург',
+  russia: 'Вся Россия',
+}
+
+const REGION_NAMES: Record<Region, string> = {
+  moscow: 'Москве',
+  spb: 'Санкт-Петербурге',
+  russia: 'России',
+}
+
+const LEVELS: Array<'basic' | 'confident' | 'expert'> = ['basic', 'confident', 'expert']
+
+// ============================================
+// КОМПОНЕНТ
+// ============================================
+
+export default function SalaryCalculator() {
   const [profession, setProfession] = useState('Копирайтер')
-  const [city, setCity] = useState('Москва')
+  const [region, setRegion] = useState<Region>('moscow')
+  const [data, setData] = useState<ProfessionData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [medianSalary, setMedianSalary] = useState<number>(0)
-  const [vacancyCount, setVacancyCount] = useState<number>(0)
-  const [skills, setSkills] = useState<SkillData[]>([])
-  const [selectedSkills, setSelectedSkills] = useState<Set<string>>(new Set())
-  const [showOnboarding, setShowOnboarding] = useState(true)
-  const [onboardingStep, setOnboardingStep] = useState(1)
-  const [updatedAt, setUpdatedAt] = useState<string>('')
+  const [errorMessage, setErrorMessage] = useState<string>('')
 
-  // Загрузка данных
-  const fetchData = async () => {
+  const [skills, setSkills] = useState<Record<string, SkillLevel>>({})
+  const [hoveredSkill, setHoveredSkill] = useState<string | null>(null)
+  const [hoveredLevel, setHoveredLevel] = useState<number>(-1)
+
+  const [showProfessionDropdown, setShowProfessionDropdown] = useState(false)
+  const [showRegionDropdown, setShowRegionDropdown] = useState(false)
+  const headerRef = useRef<HTMLDivElement>(null)
+
+  // Загрузка данных по профессии
+  useEffect(() => {
+    let cancelled = false
     setLoading(true)
     setError(null)
+    setErrorMessage('')
 
-    try {
-      const response = await fetch(`/api/salary?profession=${encodeURIComponent(profession)}&city=${encodeURIComponent(city)}`)
-      const result: ApiResponse = await response.json()
+    fetch(`/api/salary?profession=${encodeURIComponent(profession)}`)
+      .then(async (res) => {
+        const body = await res.json()
+        if (cancelled) return
 
-      if (result.success && result.data) {
-        setMedianSalary(result.data.medianSalary)
-        setVacancyCount(result.data.vacancyCount)
-        setSkills(result.data.skills)
-        setUpdatedAt(result.data.updatedAt)
-        setSelectedSkills(new Set())
-      } else {
-        setError(result.error || 'Не удалось загрузить данные')
-      }
-    } catch (err) {
-      setError('Ошибка соединения с сервером')
-    } finally {
-      setLoading(false)
+        if (body.success) {
+          setData(body.data)
+          setSkills({}) // сбрасываем выбранные навыки при смене профессии
+        } else {
+          setData(null)
+          setError(body.error || 'unknown')
+          setErrorMessage(body.message || 'Не удалось загрузить данные')
+        }
+      })
+      .catch(() => {
+        if (cancelled) return
+        setData(null)
+        setError('network')
+        setErrorMessage('Ошибка соединения с сервером')
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+
+    return () => {
+      cancelled = true
     }
-  }
+  }, [profession])
 
+  // Закрытие дропдаунов при клике вне области шапки
   useEffect(() => {
-    fetchData()
-  }, [profession, city])
-
-  // Расчёт итоговой зарплаты с учётом навыков
-  const calculateTotalSalary = () => {
-    let total = medianSalary
-    for (const skill of skills) {
-      if (selectedSkills.has(skill.name) && skill.salaryImpact > 0) {
-        total += skill.salaryImpact
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node
+      if (headerRef.current && !headerRef.current.contains(target)) {
+        setShowProfessionDropdown(false)
+        setShowRegionDropdown(false)
       }
     }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  // Расчёт итоговой зарплаты
+  const calculateSalary = useCallback((): number => {
+    if (!data) return 0
+    const regionData = data.regions[region]
+    let total = regionData.median_salary
+
+    Object.entries(skills).forEach(([id, level]) => {
+      if (level) {
+        const skill = data.skills.find((s) => s.id === id)
+        if (skill) {
+          total += skill.levels[level].salary_impact
+        }
+      }
+    })
+
     return total
-  }
+  }, [data, region, skills])
 
-  const toggleSkill = (skillName: string) => {
-    const newSelected = new Set(selectedSkills)
-    if (newSelected.has(skillName)) {
-      newSelected.delete(skillName)
-    } else {
-      newSelected.add(skillName)
+  const selectedSkillsCount = Object.values(skills).filter(Boolean).length
+
+  const getSubtitle = (): string => {
+    if (!data) return ''
+    const regionData = data.regions[region]
+
+    if (selectedSkillsCount > 0) {
+      return `Ваша рыночная стоимость в ${REGION_NAMES[region]}`
     }
-    setSelectedSkills(newSelected)
+    return `Медианная зарплата по профессии «${data.profession}» в ${REGION_NAMES[region]} на основе ${regionData.vacancy_count.toLocaleString('ru-RU')} вакансий`
   }
 
-  const formatSalary = (salary: number) => {
-    return new Intl.NumberFormat('ru-RU').format(Math.round(salary))
-  }
+  const setSkillLevel = useCallback((skillId: string, level: SkillLevel) => {
+    setSkills((prev) => {
+      if (prev[skillId] === level) {
+        const next = { ...prev }
+        delete next[skillId]
+        return next
+      }
+      return { ...prev, [skillId]: level }
+    })
+  }, [])
 
-  const formatDate = (dateStr: string) => {
+  const resetSkill = useCallback((skillId: string) => {
+    setSkills((prev) => {
+      const next = { ...prev }
+      delete next[skillId]
+      return next
+    })
+  }, [])
+
+  const formatDate = (dateStr: string): string => {
     if (!dateStr) return ''
-    const date = new Date(dateStr)
-    return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
+    return new Date(dateStr).toLocaleDateString('ru-RU', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    })
   }
 
-  // Рейтинг навыка (1-3 звезды)
-  const getSkillRating = (skill: SkillData) => {
-    if (skill.salaryImpact > 15000) return 3
-    if (skill.salaryImpact > 5000) return 2
-    return 1
-  }
+  // ----- Кастомный дропдаун -----
+  const CustomDropdown = ({
+    label,
+    value,
+    options,
+    isOpen,
+    onToggle,
+    onChange,
+  }: {
+    label: string
+    value: string
+    options: { value: string; label: string }[]
+    isOpen: boolean
+    onToggle: () => void
+    onChange: (value: string) => void
+  }) => (
+    <div className="relative">
+      <label className="block text-xs text-gray-500 mb-1.5 font-medium">{label}</label>
+      <button
+        type="button"
+        onClick={() => onToggle()}
+        className="flex items-center justify-between gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-xl hover:border-gray-300 transition-colors min-w-[180px] text-left"
+      >
+        <span className="text-gray-900">{value}</span>
+        <svg
+          className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {isOpen && (
+        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden">
+          {options.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => {
+                onChange(option.value)
+                onToggle()
+              }}
+              className={`w-full px-4 py-2.5 text-left hover:bg-gray-50 transition-colors ${
+                option.label === value ? 'bg-blue-50 text-blue-600' : 'text-gray-900'
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+
+  // ============================================
+  // РЕНДЕР
+  // ============================================
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
-      {/* Шапка */}
-      <header className="max-w-4xl mx-auto mb-8">
-        <div className="flex items-center justify-between">
+    <div className="min-h-screen bg-gray-50">
+      {/* Шапка с дропдаунами */}
+      <header className="bg-white border-b sticky top-0 z-30">
+        <div ref={headerRef} className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center flex-wrap gap-4">
           <div>
-            <h1 className="text-xl font-bold text-gray-800">Digital Salary</h1>
+            <h1 className="text-xl font-bold">Digital Salary</h1>
             <p className="text-sm text-gray-500">Калькулятор зарплат</p>
           </div>
-          <div className="flex gap-4 items-center">
-            {/* Селект профессии */}
-            <select
-              value={profession}
-              onChange={(e) => setProfession(e.target.value)}
-              className="px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {PROFESSIONS.map((p) => (
-                <option key={p} value={p}>{p}</option>
-              ))}
-            </select>
 
-            {/* Селект города */}
-            <select
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-              className="px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {CITIES.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
+          <div className="flex gap-4 flex-wrap">
+            <CustomDropdown
+              label="Профессия"
+              value={profession}
+              options={PROFESSIONS.map((p) => ({ value: p, label: p }))}
+              isOpen={showProfessionDropdown}
+              onToggle={() => {
+                setShowProfessionDropdown(!showProfessionDropdown)
+                setShowRegionDropdown(false)
+              }}
+              onChange={(value) => setProfession(value)}
+            />
+            <CustomDropdown
+              label="Местоположение"
+              value={REGION_LABELS[region]}
+              options={[
+                { value: 'moscow', label: 'Москва' },
+                { value: 'spb', label: 'Санкт-Петербург' },
+                { value: 'russia', label: 'Вся Россия' },
+              ]}
+              isOpen={showRegionDropdown}
+              onToggle={() => {
+                setShowRegionDropdown(!showRegionDropdown)
+                setShowProfessionDropdown(false)
+              }}
+              onChange={(value) => setRegion(value as Region)}
+            />
           </div>
         </div>
       </header>
 
-      {/* Основной контент */}
-      <main className="max-w-4xl mx-auto">
-        {/* Блок с зарплатой */}
-        <div className="bg-white rounded-3xl shadow-sm p-8 mb-6 text-center">
-          {loading ? (
-            <div className="py-8">
-              <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-              <p className="text-gray-500">Загружаем данные с SuperJob...</p>
-            </div>
-          ) : error ? (
-            <div className="py-8">
-              <p className="text-red-500 mb-4">{error}</p>
-              <button
-                onClick={fetchData}
-                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-              >
-                Попробовать снова
-              </button>
-            </div>
-          ) : (
-            <>
-              <p className="text-6xl md:text-7xl font-bold text-green-500 mb-2">
-                {formatSalary(calculateTotalSalary())} ₽
-              </p>
-              <p className="text-gray-500 mb-2">в месяц до вычета налогов</p>
-              <p className="text-sm text-gray-400">
-                Медиана по {vacancyCount} вакансиям &bull; {city}
-              </p>
-              {selectedSkills.size > 0 && (
-                <p className="text-sm text-green-600 mt-2">
-                  +{formatSalary(calculateTotalSalary() - medianSalary)} ₽ за выбранные навыки
-                </p>
-              )}
-            </>
-          )}
-        </div>
-
-        {/* Навыки */}
-        {!loading && !error && skills.length > 0 && (
-          <div className="bg-white rounded-3xl shadow-sm p-6">
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">
-              Навыки, влияющие на зарплату
-            </h2>
-            <p className="text-sm text-gray-500 mb-4">
-              Выберите ваши навыки, чтобы увидеть их влияние на зарплату
-            </p>
-
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {skills.map((skill) => {
-                const isSelected = selectedSkills.has(skill.name)
-                const rating = getSkillRating(skill)
-
-                return (
-                  <button
-                    key={skill.name}
-                    onClick={() => toggleSkill(skill.name)}
-                    className={`p-4 rounded-xl text-left transition-all ${
-                      isSelected
-                        ? 'bg-green-50 border-2 border-green-500'
-                        : 'bg-gray-50 border-2 border-transparent hover:border-gray-200'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-sm font-medium text-gray-800">{skill.name}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      {[1, 2, 3].map((star) => (
-                        <span
-                          key={star}
-                          className={`text-lg ${star <= rating ? 'text-yellow-400' : 'text-gray-200'}`}
-                        >
-                          ★
-                        </span>
-                      ))}
-                    </div>
-                    {skill.salaryImpact > 0 && (
-                      <p className="text-xs text-green-600 mt-1">
-                        +{formatSalary(skill.salaryImpact)} ₽
-                      </p>
-                    )}
-                    <p className="text-xs text-gray-400 mt-1">
-                      {skill.count} вакансий
-                    </p>
-                  </button>
-                )
-              })}
-            </div>
+      <main className="max-w-6xl mx-auto px-4 py-12">
+        {/* Состояние «загрузка» */}
+        {loading && (
+          <div className="text-center py-20">
+            <div className="text-2xl text-gray-400">Загружаем данные…</div>
           </div>
         )}
 
-        {/* Футер с информацией */}
-        <footer className="mt-8 text-center text-sm text-gray-400">
-          <p>Данные: SuperJob API</p>
-          {updatedAt && <p>Обновлено: {formatDate(updatedAt)}</p>}
-          <div className="mt-2 flex justify-center gap-4">
-            <Link href="/about" className="text-blue-500 hover:underline">О проекте</Link>
-            <Link href="/author" className="text-blue-500 hover:underline">Автор</Link>
-            <a
-              href="https://github.com/maisondina/digital-salary"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-500 hover:underline"
-            >
-              GitHub
-            </a>
-          </div>
-        </footer>
-      </main>
-
-      {/* Онбординг */}
-      {showOnboarding && (
-        <>
-          <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setShowOnboarding(false)} />
-          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl p-6 shadow-xl z-50 max-w-sm w-full mx-4">
-            <button
-              onClick={() => setShowOnboarding(false)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
-            >
-              ✕
-            </button>
-
-            {onboardingStep === 1 && (
-              <>
-                <h3 className="font-semibold text-lg mb-2">1. Выберите профессию</h3>
-                <p className="text-gray-500 text-sm mb-4">
-                  Доступны: копирайтер, SMM, таргетолог, SEO-специалист
-                </p>
-              </>
-            )}
-
-            {onboardingStep === 2 && (
-              <>
-                <h3 className="font-semibold text-lg mb-2">2. Выберите город</h3>
-                <p className="text-gray-500 text-sm mb-4">
-                  Зарплаты отличаются в разных регионах
-                </p>
-              </>
-            )}
-
-            {onboardingStep === 3 && (
-              <>
-                <h3 className="font-semibold text-lg mb-2">3. Отметьте навыки</h3>
-                <p className="text-gray-500 text-sm mb-4">
-                  Выберите навыки, которыми владеете, и узнайте свою рыночную стоимость
-                </p>
-              </>
-            )}
-
-            {onboardingStep === 4 && (
-              <>
-                <h3 className="font-semibold text-lg mb-2">Готово!</h3>
-                <p className="text-gray-500 text-sm mb-4">
-                  Данные загружаются с SuperJob в реальном времени
-                </p>
-              </>
-            )}
-
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-400">{onboardingStep} из 4</span>
-              <button
-                onClick={() => {
-                  if (onboardingStep < 4) {
-                    setOnboardingStep(onboardingStep + 1)
-                  } else {
-                    setShowOnboarding(false)
-                  }
-                }}
-                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm"
-              >
-                {onboardingStep < 4 ? 'Далее' : 'Понятно!'}
-              </button>
+        {/* Состояние «нет данных по профессии» */}
+        {!loading && error === 'no_data' && (
+          <div className="text-center py-20 max-w-xl mx-auto">
+            <div className="text-5xl mb-6">📊</div>
+            <div className="text-2xl font-bold text-gray-800 mb-3">
+              Скоро добавим
             </div>
+            <div className="text-gray-600 mb-6">
+              По профессии «{profession}» данные ещё собираются. Пока попробуйте калькулятор для другой профессии — например, копирайтера.
+            </div>
+            <button
+              onClick={() => setProfession('Копирайтер')}
+              className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium"
+            >
+              Открыть копирайтера
+            </button>
           </div>
-        </>
-      )}
+        )}
+
+        {/* Состояние «другая ошибка» */}
+        {!loading && error && error !== 'no_data' && (
+          <div className="text-center py-20 max-w-xl mx-auto">
+            <div className="text-5xl mb-6">⚠️</div>
+            <div className="text-2xl font-bold text-gray-800 mb-3">Что-то пошло не так</div>
+            <div className="text-gray-600">{errorMessage}</div>
+          </div>
+        )}
+
+        {/* Основной контент — калькулятор */}
+        {!loading && !error && data && (
+          <>
+            {/* Большая цифра зарплаты */}
+            <div className="text-center mb-16">
+              <div className="text-7xl md:text-8xl font-bold mb-4 text-gray-900">
+                {calculateSalary().toLocaleString('ru-RU')} ₽
+              </div>
+              <div className="text-xl text-gray-600 mb-2">в месяц до вычета налогов</div>
+              <div className="text-sm text-gray-500">{getSubtitle()}</div>
+
+              {selectedSkillsCount === 0 && data.skills.length > 0 && (
+                <div className="mt-6 text-blue-600 font-medium text-lg">
+                  👇 Добавьте навыки, чтобы увидеть свою стоимость
+                </div>
+              )}
+            </div>
+
+            {/* Сетка навыков */}
+            {data.skills.length > 0 ? (
+              <div>
+                <h2 className="text-2xl font-bold mb-8 text-center">Ваши навыки</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {data.skills.map((skill) => {
+                    const selectedLevel = skills[skill.id]
+                    const isSelected = !!selectedLevel
+                    const selectedLevelIndex = selectedLevel ? LEVELS.indexOf(selectedLevel) : -1
+
+                    return (
+                      <div
+                        key={skill.id}
+                        className={`
+                          border-2 rounded-xl p-5 transition-all
+                          ${
+                            isSelected
+                              ? 'border-blue-500 bg-blue-50 shadow-md'
+                              : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
+                          }
+                        `}
+                      >
+                        <div
+                          className={`flex items-center gap-3 mb-4 ${isSelected ? 'cursor-pointer' : ''}`}
+                          onClick={() => isSelected && resetSkill(skill.id)}
+                        >
+                          <span className="text-3xl">{skill.icon}</span>
+                          <span className="font-semibold text-lg">{skill.name}</span>
+                        </div>
+
+                        <div className="flex gap-2">
+                          {LEVELS.map((lvl, idx) => {
+                            const isFilledBySelection = selectedLevelIndex >= idx
+                            const isFilledByHover =
+                              hoveredSkill === skill.id && hoveredLevel >= idx
+                            const isFilled = isFilledBySelection || isFilledByHover
+                            const isHoveredStar =
+                              hoveredSkill === skill.id && hoveredLevel === idx
+
+                            return (
+                              <div
+                                key={lvl}
+                                className="relative"
+                                onMouseEnter={() => {
+                                  setHoveredSkill(skill.id)
+                                  setHoveredLevel(idx)
+                                }}
+                                onMouseLeave={() => {
+                                  setHoveredSkill(null)
+                                  setHoveredLevel(-1)
+                                }}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => setSkillLevel(skill.id, lvl)}
+                                  className="p-1 rounded-lg transition-all hover:scale-110 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                                  aria-label={`${skill.name} — ${skill.levels[lvl].name}`}
+                                >
+                                  <svg
+                                    className={`w-8 h-8 transition-colors ${
+                                      isFilled
+                                        ? 'fill-yellow-400 stroke-yellow-500'
+                                        : 'fill-gray-100 stroke-gray-300'
+                                    }`}
+                                    viewBox="0 0 24 24"
+                                    strokeWidth="1.5"
+                                  >
+                                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                                  </svg>
+                                </button>
+
+                                {isHoveredStar && (
+                                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-72 bg-gray-900 text-white text-sm rounded-xl p-4 shadow-2xl z-50 pointer-events-none">
+                                    <div className="font-semibold text-base mb-2">
+                                      {skill.levels[lvl].name}
+                                    </div>
+                                    <div className="text-gray-300 mb-3 leading-relaxed">
+                                      {skill.levels[lvl].description}
+                                    </div>
+                                    <div className="text-green-400 font-medium">
+                                      +{skill.levels[lvl].salary_impact.toLocaleString('ru-RU')} ₽ к зарплате
+                                    </div>
+                                    <div className="absolute top-full left-1/2 -translate-x-1/2">
+                                      <div className="border-8 border-transparent border-t-gray-900" />
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+
+                        {isSelected && selectedLevel && (
+                          <div className="mt-3">
+                            <span className="text-green-600 font-semibold">
+                              +{skill.levels[selectedLevel].salary_impact.toLocaleString('ru-RU')} ₽
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div className="text-center text-gray-500 py-10">
+                Навыки по этой профессии ещё анализируем.
+              </div>
+            )}
+
+            {/* Футер */}
+            <footer className="mt-20 pt-12 border-t text-center">
+              <div className="flex justify-center gap-8 text-sm text-gray-500">
+                <Link href="/about" className="hover:text-blue-600 transition-colors">
+                  О проекте
+                </Link>
+                <Link href="/author" className="hover:text-blue-600 transition-colors">
+                  Автор
+                </Link>
+                <a
+                  href="https://github.com/maisondina/digital-salary"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-blue-600 transition-colors"
+                >
+                  GitHub
+                </a>
+              </div>
+              <div className="mt-4 text-xs text-gray-400">
+                Источник: {data.meta.data_source}. Данные обновлены: {formatDate(data.meta.updated_at)}
+              </div>
+            </footer>
+          </>
+        )}
+      </main>
     </div>
   )
 }

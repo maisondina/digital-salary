@@ -2,3 +2,7 @@ node_modules
 .next
 *.tsbuildinfo
 .DS_Store
+
+# Локальные переменные окружения — НИКОГДА не коммитим
+.env.local
+.env*.local
